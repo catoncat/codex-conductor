@@ -26,6 +26,12 @@ waves, milestones, phases, or follow-up passes, it keeps a small backlog in
 `workflow-state.md` or `milestone-plan.md` and continues through the next
 unblocked item instead of treating the first wave as the whole job.
 
+Before launching sessions, the controller clarifies the assignment into an
+orchestration brief: goal, deliverables, scope, acceptance criteria,
+constraints, known artifacts, open questions, and the recommended first
+harness. It asks focused questions only when the answer cannot be discovered
+from the repo or current workflow files and would materially change the plan.
+
 ## Install
 
 Install from GitHub:
@@ -190,6 +196,7 @@ control plane that keeps the work recoverable.
 
 The most important file is `workflow-state.md`. It records:
 
+- refined orchestration brief
 - objective and non-goals
 - workflow shape and complexity budget
 - program backlog and next unblocked item
@@ -239,7 +246,8 @@ Coordinate the remaining checkout migration. Create a durable workflow, split
 the work into independent sessions only where useful, and make sure every worker
 gets the project constraints capsule before it starts. Use the controller Goal
 to keep going through all planned waves until the backlog is complete, blocked,
-or explicitly deferred.
+or explicitly deferred. Start by restating the real goal, deliverables, scope,
+acceptance criteria, and any questions that materially affect the plan.
 ```
 
 Resume an existing workflow:

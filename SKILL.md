@@ -81,6 +81,45 @@ If a profile file contradicts the current user instruction, the user
 instruction wins. If a project profile contradicts a host profile, the project
 profile wins inside that repository.
 
+## Clarify The Assignment First
+
+Before creating a durable workflow, optimize the user's initial prompt into a
+clear orchestration brief. Do not turn an ambiguous request into sessions,
+worktrees, branches, issues, PRs, or handoffs just because the user mentioned
+coordination.
+
+First resolve discoverable facts from the current environment: active workflow
+state, repo instructions, project profile, branch/worktree status, obvious
+issue/PR links, and relevant docs. Ask the user only for decisions that cannot
+be discovered locally and would materially change scope, delivery, risk, or
+authorization.
+
+The controller should be able to restate the brief before choosing a harness:
+
+```markdown
+## Orchestration Brief
+goal:
+deliverables:
+in_scope:
+out_of_scope:
+acceptance_criteria:
+constraints:
+known_artifacts:
+open_questions:
+recommended_first_harness:
+```
+
+If important ambiguity remains, ask one to three focused questions before
+launching sessions. Good questions choose between meaningful tradeoffs: final
+deliverable shape, read-only audit versus implementation, allowed write
+surface, verification depth, deadline/budget, production or GitHub mutation
+authorization, and whether unresolved work should become follow-up backlog.
+
+Do not ask questions already answered by the repository or current workflow
+files. Do not ask merely to delay. If the user explicitly asks to continue
+nonstop, make reasonable assumptions, record them in the brief, and continue
+until a real blocker or authorization boundary appears.
+
 ### Project Constraints Capsule
 
 For every durable workflow, write a compact `Project Constraints Capsule` into
@@ -588,7 +627,15 @@ reason to leave the next wave implicit.
 
 ## Orchestrator Setup
 
-1. Create or align the orchestrator `Goal`.
+1. Build the orchestration brief from the user's prompt, live repo/workflow
+   facts, project profile, and any necessary clarifying answers.
+   - Restate goal, deliverables, scope, acceptance criteria, constraints, known
+     artifacts, open questions, and recommended first harness.
+   - Ask focused clarification questions before launching durable objects when
+     the brief is not decision-ready.
+   - If proceeding with assumptions, write them into `workflow-state.md` and
+     worker prompts.
+2. Create or align the orchestrator `Goal` from the refined brief.
    - If no active Goal exists, call `create_goal`.
    - If a Goal exists, confirm it matches this workflow before using it.
    - The orchestrator Goal covers the whole workflow backlog, not only the
@@ -598,7 +645,7 @@ reason to leave the next wave implicit.
    - If all remaining work is blocked or deferred, keep the Goal active unless
      the platform blocked-goal rule is satisfied or the user explicitly accepts
      the deferral.
-2. Decide the workflow shape before creating artifacts:
+3. Decide the workflow shape before creating artifacts:
    - direct controller work
    - controller plus subagents/parallel tools for lightweight read-only probes
    - controller plus read-only evidence sessions
@@ -606,21 +653,21 @@ reason to leave the next wave implicit.
    - implementation plus verifier/reviewer
    - heartbeat continuation
    - controller rollover
-3. Set the complexity budget and shrink trigger before creating task prompts or
+4. Set the complexity budget and shrink trigger before creating task prompts or
    optional artifacts.
-4. Classify the dependency shape before fanout: `parallel`, `serial`, or
+5. Classify the dependency shape before fanout: `parallel`, `serial`, or
    `weak-dependency`.
-5. Choose the workflow directory and create only the files needed for that
+6. Choose the workflow directory and create only the files needed for that
    shape.
-6. Build the Project Constraints Capsule from profile files and live detection.
-7. Write the global objective, non-goals, capsule, identity, program backlog,
-   Goal completion rule, evidence rules, allowed write scope, forbidden
-   actions, verification commands, and stop lines.
-8. Write the chosen workflow shape, complexity budget, dependency shape,
+7. Build the Project Constraints Capsule from profile files and live detection.
+8. Write the refined brief, global objective, non-goals, capsule, identity,
+   program backlog, Goal completion rule, evidence rules, allowed write scope,
+   forbidden actions, verification commands, and stop lines.
+9. Write the chosen workflow shape, complexity budget, dependency shape,
    communication rule, state source of truth, worker-handoff rule, shrink
    trigger, controller-rollover rule, next-wave launch condition, and naming
    override source in `workflow-state.md`.
-9. Break work into session-sized tasks only where sessions are useful. Before
+10. Break work into session-sized tasks only where sessions are useful. Before
    creating a Codex Session for read-only work, ask whether a subagent or
    parallel tool can answer it with a compact result. A good task has:
    - task mode
@@ -637,11 +684,11 @@ reason to leave the next wave implicit.
    - commit policy
    - budget and stop condition
    - noise/efficiency reporting requirement
-10. Register delegated or durable tasks in `session-registry.md`.
-11. Create Codex Sessions with the thread tool when available. If no Codex
+11. Register delegated or durable tasks in `session-registry.md`.
+12. Create Codex Sessions with the thread tool when available. If no Codex
    thread tool is available, write starter prompts and tell the user they must
    launch them manually.
-12. After creating each session, immediately update the registry with the actual
+13. After creating each session, immediately update the registry with the actual
    title, thread id, cwd/worktree path, branch, task mode, role, allowed
    writes, budget, and next proof checkpoint. Do not rely on planned paths
    after launch.

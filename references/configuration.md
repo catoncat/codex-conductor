@@ -47,6 +47,14 @@ Use `.codex-conductor/project.md` when one short file is enough:
 ## Purpose
 Short description of the repository and how conductor workflows should operate.
 
+## Intake And Brief
+- Required scope questions:
+- Required deliverable questions:
+- Required authorization questions:
+- Acceptance criteria defaults:
+- Assumptions allowed without asking:
+- Stop and ask when:
+
 ## Package Manager
 - Use:
 - Do not use:

@@ -7,6 +7,15 @@ project-specific orchestration rules.
 
 Describe the repository and the kinds of work Codex Conductor should coordinate.
 
+## Intake And Brief
+
+- Required scope questions:
+- Required deliverable questions:
+- Required authorization questions:
+- Acceptance criteria defaults:
+- Assumptions allowed without asking:
+- Stop and ask when:
+
 ## Package Manager
 
 - Use:

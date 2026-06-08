@@ -1,4 +1,4 @@
 interface:
   display_name: "Codex Conductor"
   short_description: "Coordinate multi-session Codex work with project profiles and durable proof"
-  default_prompt: "Use $codex-conductor to coordinate this complex task across Codex Sessions. Discover the project profile, create or align the controller Goal, choose the smallest useful workflow, keep a backlog for planned waves or follow-ups, and continue through the next unblocked item with recoverable names plus proof handoffs."
+  default_prompt: "Use $codex-conductor to coordinate this complex task across Codex Sessions. First clarify and refine the user's request into a concrete orchestration brief with goal, deliverables, scope, acceptance criteria, and constraints. Then discover the project profile, create or align the controller Goal, choose the smallest useful workflow, keep a backlog for planned waves or follow-ups, and continue through the next unblocked item with recoverable names plus proof handoffs."

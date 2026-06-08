@@ -42,7 +42,7 @@ handoff_path:
 
 ## Completion Gate
 
-The orchestrator closes the wave only after:
+The orchestrator closes this wave only after:
 
 - every actionable finding is fixed, deferred with reason, or rejected with
   counterevidence
@@ -50,3 +50,8 @@ The orchestrator closes the wave only after:
 - each fix followed the declared project constraints and verification tier
 - the final verifier or evidence packet confirms the finding-to-fix mapping
 - residual risk is recorded in the final handoff
+
+Closing this wave is not closing the workflow. After closeout, update the
+program backlog in `workflow-state.md` or `milestone-plan.md`. If follow-up
+review, fix, or verification waves remain unblocked and inside budget, launch
+the next one or roll over with an exact next-wave launch instruction.

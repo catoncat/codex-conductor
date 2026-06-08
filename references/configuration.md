@@ -86,7 +86,14 @@ Short description of the repository and how conductor workflows should operate.
 - Never do:
 
 ## Lifecycle
-- Branch naming:
+- Identity and naming:
+  - session_title:
+  - branch_naming:
+  - worktree_naming:
+  - issue_pr_title:
+  - label_policy:
+  - max_lengths:
+  - illegal_character_replacement:
 - Commit policy:
 - Push policy:
 - Issue/PR policy:
@@ -105,6 +112,12 @@ Split the file only when the profile grows. Use:
 - `verification.md` for verification tiers and expensive checks.
 - `worktree.md` for dependency, env, database, generated files, or setup rules.
 - `lifecycle.md` for branch, commit, PR, issue, release, and deployment rules.
+
+Identity and naming overrides may change display templates, length limits,
+illegal character replacement, and issue/PR/branch naming policy. They must not
+change the conductor role boundary, require new artifact classes, or make
+labels, sessions, worktrees, issues, or PRs mandatory when the chosen workflow
+shape does not need them.
 
 ## Host Profile Template
 
@@ -161,3 +174,21 @@ forbidden_commands:
 ```
 
 Keep capsules short. They are launch instructions, not project documentation.
+
+## Identity Example
+
+When a durable workflow creates sessions or worktrees, record identity inside
+the existing `workflow-state.md` rather than creating a new identity file:
+
+```markdown
+## Identity
+workflow_slug: auth-rbac-audit
+workflow_label: Auth RBAC Audit
+run_id: r7f2
+project_label: billing-api
+naming_overrides: .codex-conductor/project.md
+```
+
+Use these fields to keep titles and paths recoverable. `session-registry.md`
+remains the canonical map from visible names to thread ids, worktrees, branches,
+handoffs, proof, and status.

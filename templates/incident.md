@@ -48,3 +48,5 @@ The orchestrator may call the incident closed only after:
 - any production action was explicitly authorized
 - remaining risk and follow-up are recorded
 - heartbeat or continuation jobs are stopped
+- the workflow backlog has no pending unblocked evidence, fix, verification,
+  or follow-up actions

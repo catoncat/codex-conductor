@@ -21,6 +21,11 @@ It does not require Mainline, GitHub, or any private tooling. If those tools are
 available, the conductor can use them. If not, it falls back to workflow files,
 task prompts, compact handoffs, and explicit proof.
 
+The controller uses a Codex Goal for the whole workflow. If it splits work into
+waves, milestones, phases, or follow-up passes, it keeps a small backlog in
+`workflow-state.md` or `milestone-plan.md` and continues through the next
+unblocked item instead of treating the first wave as the whole job.
+
 ## Install
 
 Install from GitHub:
@@ -101,7 +106,10 @@ Then fill in the parts that matter for your project:
 - Schema or migration work must use isolated databases.
 
 ## Lifecycle
-- Branch naming: codex/<short-task>
+- Identity and naming:
+  - Session title: <Workflow Label>: <Role> - <Task Label> [<task-id>]
+  - Branch naming: include workflow slug, short run id, and task id
+  - Label policy: do not create labels unless the controller asks
 - Commit policy: commit verified slices only.
 - PR policy: workers open PRs only when explicitly assigned.
 
@@ -123,6 +131,28 @@ The conductor also reads normal repo instructions such as `AGENTS.md`,
 `CONTRIBUTING.md`, and workflow docs. The `.codex-conductor/` profile exists so
 conductor-specific rules are easy to find and do not get buried in product
 documentation.
+
+## Identity And Recovery
+
+When the chosen workflow already needs durable sessions, worktrees, branches,
+issues, PRs, or handoffs, the conductor gives those objects names that map back
+to the same `workflow-state.md` and `session-registry.md`. Identity is only a
+recovery index; it is not a reason to create extra objects.
+
+The controller records a short identity section in `workflow-state.md`:
+
+```markdown
+## Identity
+workflow_slug: auth-rbac-audit
+workflow_label: Auth RBAC Audit
+run_id: r7f2
+project_label: billing-api
+naming_overrides: .codex-conductor/project.md
+```
+
+Visible session titles should stay readable, while exact thread ids, worktree
+paths, branches, proof, and handoff paths stay canonical in
+`session-registry.md`.
 
 ## Optional Host Configuration
 
@@ -162,6 +192,7 @@ The most important file is `workflow-state.md`. It records:
 
 - objective and non-goals
 - workflow shape and complexity budget
+- program backlog and next unblocked item
 - Project Constraints Capsule
 - active sessions and proof gates
 - shrink/stop conditions
@@ -206,7 +237,9 @@ Use $codex-conductor.
 
 Coordinate the remaining checkout migration. Create a durable workflow, split
 the work into independent sessions only where useful, and make sure every worker
-gets the project constraints capsule before it starts.
+gets the project constraints capsule before it starts. Use the controller Goal
+to keep going through all planned waves until the backlog is complete, blocked,
+or explicitly deferred.
 ```
 
 Resume an existing workflow:

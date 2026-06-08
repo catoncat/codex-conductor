@@ -44,10 +44,15 @@ Stop and report instead of expanding scope when:
 
 ## Completion Gate
 
-The orchestrator may integrate only after:
+The orchestrator may integrate and close this wave only after:
 
 - each write session produced proof or a blocker
 - each worker followed the declared verification tier and bootstrap rules
 - registry status and actual files agree
 - no owned paths overlap unexpectedly
 - final focused verification ran in the integration workspace
+
+Closing this wave is not closing the workflow. After integration, update the
+program backlog in `workflow-state.md` or `milestone-plan.md`. If the next wave
+is known, unblocked, and inside the complexity budget, launch it or roll over
+with an exact next-wave launch instruction.

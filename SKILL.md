@@ -224,6 +224,103 @@ a worker, gate, template, checklist, runbook, or durable artifact, answer:
 - why it must be durable now instead of a note in an existing file
 - what it replaces, merges, unblocks, or prevents
 
+### Autonomous Progress And Backlog
+
+The controller is not a launch-and-stop actor. When it creates or discovers a
+multi-step workflow, it must keep driving the program until the orchestrator
+Goal is complete, genuinely blocked, out of budget, or waiting on an explicit
+authorization boundary.
+
+Use the Codex Goal as the workflow-level contract, not as a per-wave checklist.
+Do not mark the orchestrator Goal complete just because the current wave,
+milestone, or batch is integrated. The Goal can complete only when the workflow
+backlog is empty or every remaining item is explicitly deferred with evidence.
+
+If the controller splits work into waves, milestones, phases, or follow-up
+passes, record the backlog in existing state, normally `workflow-state.md` or
+`milestone-plan.md`:
+
+```markdown
+## Program Backlog
+current:
+completed:
+pending:
+blocked:
+next:
+launch_condition:
+```
+
+Closing a wave is not closing the workflow. After every wave closeout,
+checkpoint state, check the backlog, and continue. If the next item is known,
+unblocked, and inside the complexity budget, launch or execute it. If controller
+context is too large, roll over with an exact next action such as "launch wave
+2 from `<task-file>`"; do not stop with a status report that leaves the next
+wave implicit.
+
+Stop only when one of these is true:
+
+- the orchestrator Goal is complete under the workflow completion rules
+- every remaining backlog item is blocked, deferred, or requires user approval
+- the complexity budget is exhausted and the next step would exceed it
+- no autonomous next action exists after checking workflow state and registry
+- rollover is required, and the outgoing handoff names the exact next action
+
+### Identity And Recovery
+
+No entity without necessity. Identity is a recovery index, not a workflow
+harness and not a reason to create sessions, worktrees, branches, issues, PRs,
+labels, files, or schemas.
+
+When the chosen shape already requires durable objects, give them names that
+map back to the same workflow state and registry row. Reuse existing artifacts:
+write identity fields into `workflow-state.md`, exact object references into
+`session-registry.md`, and assigned names into task prompts and handoffs. Do not
+create `identity.md`, `naming.md`, a second registry, or a separate identity
+schema by default.
+
+Use the smallest identity surface that lets a later controller recover from any
+visible object:
+
+```markdown
+## Identity
+workflow_slug:
+workflow_label:
+run_id:
+project_label: optional
+naming_overrides: default | .codex-conductor/project.md | host profile
+```
+
+- `workflow_slug` is the compact machine-searchable slug used in paths and
+  branch names.
+- `workflow_label` is the short human-readable label used in session, issue,
+  and PR titles.
+- `run_id` is a short stable discriminator for repeated runs of the same
+  workflow; use it in branch/worktree paths when collisions are likely.
+- `project_label` is optional and only needed when Codex conversation titles
+  would be ambiguous outside the repository.
+
+For visible Codex session titles, prefer a readable compact shape:
+
+```text
+<Workflow Label>: <Role> - <Task Label> [<task-id>]
+```
+
+Add `[<project>]` only when the Codex conversation list is cross-project and
+ambiguous. Add strong temporary status words such as `BLOCKED` or `NEEDS USER`
+only when they change where the user should look; keep ordinary status in
+`session-registry.md`.
+
+For branches and worktrees, include enough identity to recover the registry row
+without enforcing one global template. A good default includes
+`workflow_slug`, short `run_id`, and `task_id`. Handoffs should stay
+`handoffs/<task-id>.md`; expand to `handoffs/<task-id>-<role>-<attempt>.md`
+only when retries or multiple roles would collide.
+
+Do not create GitHub labels by default. If a project already uses labels for
+workflow recovery, keep them low-noise, such as `cc:<workflow-slug>` or
+`cc-run:<short-id>`. Role, wave, milestone, or phase labels are project-profile
+overrides, not public-skill defaults.
+
 ### Shrink Mode
 
 Enter shrink mode when the user pauses, asks for closeout, duplicate worker
@@ -238,8 +335,10 @@ In shrink mode:
   state into `workflow-state.md`, `session-registry.md`, `milestone-plan.md`, or
   the latest handoff
 - merge adjacent gates unless they protect different independence boundaries
-- run one next proof or write one controller checkpoint, then stop or ask the
-  user before expanding again
+- run the next proof or write the controller checkpoint, then check the program
+  backlog before stopping. If the next backlog item is unblocked and within the
+  existing budget, continue without asking. Ask only when continuing would
+  require a new entity, a larger budget, or an authorization boundary.
 
 Separate review and verification gates only when independence matters: for
 example a semantic review can change the verification set, verification needs a
@@ -470,6 +569,7 @@ controller checkpoint for the next controller:
 # Controller Checkpoint
 current_wave:
 completed:
+pending:
 active:
 blocked:
 decisions:
@@ -478,16 +578,26 @@ next_actions:
 do_not_reopen:
 ```
 
-The next wave may start in a fresh controller thread. The fresh controller
-should read only the workflow overview, `workflow-state.md`,
-`session-registry.md`, the latest controller checkpoint, and changed handoffs.
-Do not keep a controller alive just because it has history.
+Start the next unblocked wave in the current controller unless rollover is
+needed for context size, tool limits, or a clean control-plane handoff. A fresh
+controller should read only the workflow overview, `workflow-state.md`,
+`session-registry.md`, the latest controller checkpoint, and changed handoffs,
+then perform the exact next action named in the checkpoint. Do not keep a
+controller alive just because it has history, but do not use rollover as a
+reason to leave the next wave implicit.
 
 ## Orchestrator Setup
 
 1. Create or align the orchestrator `Goal`.
    - If no active Goal exists, call `create_goal`.
    - If a Goal exists, confirm it matches this workflow before using it.
+   - The orchestrator Goal covers the whole workflow backlog, not only the
+     current wave.
+   - Do not call `update_goal complete` while `workflow-state.md` or
+     `milestone-plan.md` has pending unblocked work.
+   - If all remaining work is blocked or deferred, keep the Goal active unless
+     the platform blocked-goal rule is satisfied or the user explicitly accepts
+     the deferral.
 2. Decide the workflow shape before creating artifacts:
    - direct controller work
    - controller plus subagents/parallel tools for lightweight read-only probes
@@ -503,11 +613,13 @@ Do not keep a controller alive just because it has history.
 5. Choose the workflow directory and create only the files needed for that
    shape.
 6. Build the Project Constraints Capsule from profile files and live detection.
-7. Write the global objective, non-goals, capsule, evidence rules, allowed write
-   scope, forbidden actions, verification commands, and stop lines.
+7. Write the global objective, non-goals, capsule, identity, program backlog,
+   Goal completion rule, evidence rules, allowed write scope, forbidden
+   actions, verification commands, and stop lines.
 8. Write the chosen workflow shape, complexity budget, dependency shape,
    communication rule, state source of truth, worker-handoff rule, shrink
-   trigger, and controller-rollover rule in `workflow-state.md`.
+   trigger, controller-rollover rule, next-wave launch condition, and naming
+   override source in `workflow-state.md`.
 9. Break work into session-sized tasks only where sessions are useful. Before
    creating a Codex Session for read-only work, ask whether a subagent or
    parallel tool can answer it with a compact result. A good task has:
@@ -530,8 +642,9 @@ Do not keep a controller alive just because it has history.
    thread tool is available, write starter prompts and tell the user they must
    launch them manually.
 12. After creating each session, immediately update the registry with the actual
-   thread id, cwd/worktree path, branch, task mode, allowed writes, budget, and
-   next proof checkpoint. Do not rely on planned paths after launch.
+   title, thread id, cwd/worktree path, branch, task mode, role, allowed
+   writes, budget, and next proof checkpoint. Do not rely on planned paths
+   after launch.
 
 ## Per-Session Goal Protocol
 
@@ -695,13 +808,17 @@ Continue the current Codex Session for <workflow-slug>/<task-id>.
 
 Before doing work:
 - Read the active Goal.
-- Read <workflow-state.md> and this task file.
+- Read <workflow-state.md>, <milestone-plan.md> if present, registry, and this
+  task file.
 - If the Goal is complete/blocked, or there is no autonomous next step, pause or
   delete this heartbeat and report why.
 - If wakeups_used has reached wakeups_max, pause or delete this heartbeat and
   report the remaining handoff.
 
-Then do only the next smallest safe step, update state, and stop.
+Then run a bounded controller loop: do the next smallest safe step, update
+state, check the program backlog, and continue while the next action is
+unblocked, in scope, and inside the heartbeat budget. Stop only on the written
+stop condition, budget limit, blocker, or authorization boundary.
 ```
 
 Prefer short-lived heartbeats for recovery or continuation. For detached,
@@ -715,6 +832,19 @@ For each task, create a prompt that is self-contained but small:
 You are executing <workflow-slug>/<task-id>.
 
 Use the codex-conductor skill.
+
+Identity:
+- workflow_slug: <workflow-slug>
+- workflow_label: <human-readable workflow label>
+- run_id: <short stable run id, or "none">
+- project_label: <optional project label, or "none">
+- task_id: <task-id>
+- task_label: <human-readable task label>
+- role: <controller | integration | worker | verifier | reviewer>
+- assigned_session_title: <title to use when a title tool is available>
+- assigned_handoff: <workflow-dir>/handoffs/<task-id>.md
+- assigned_branch: <branch name if already created, or "confirm actual branch">
+- assigned_worktree: <path if already created, or "confirm actual cwd">
 
 Goal:
 <assigned objective>
@@ -762,6 +892,9 @@ Budget:
 Worktree/commit:
 - If this task can write files and may overlap with other sessions, use an
   isolated worktree.
+- Confirm the actual cwd, repository root, branch, and `git status` before
+  edits; do not invent replacement names when assigned names are missing or
+  unusable.
 - After each coherent verified slice, create a scoped commit if authorized.
 - Do not push, open PRs, merge, deploy, or touch production unless explicitly
   authorized.
@@ -774,6 +907,7 @@ Handoff:
 Write or return:
 - task_id
 - thread_id
+- session_title
 - cwd
 - branch
 - commit, or `none` with reason
@@ -787,10 +921,14 @@ Write or return:
 - efficiency_notes
 - tool_fit
 - do_not_read_transcript_unless
+- remaining_or_followup_work_if_seen
 ```
 
-Use the thread-title tool when available to title each session with the workflow
-slug and task id. Pin only the orchestrator and currently active sessions.
+Use the thread-title tool when available to title each session with the assigned
+session title from the task identity. Pin only the orchestrator and currently
+active sessions. If the assigned title is missing, use the compact default
+`<Workflow Label>: <Role> - <Task Label> [<task-id>]` and record the exact title
+in `session-registry.md`.
 
 For shell and remote-runtime tasks, prefer robust command shapes:
 
@@ -836,7 +974,12 @@ stop.
 9. Integrate non-conflicting results.
 10. Write a compact controller checkpoint after each wave or major integration.
 11. Archive or unpin sessions that are closed.
-12. Decide the next action only after updating state.
+12. Check `workflow-state.md` or `milestone-plan.md` for pending backlog before
+    stopping.
+13. If the next planned wave or task is unblocked and inside the complexity
+    budget, launch or execute it. If rollover is needed, write the exact
+    next-wave launch instruction and continue in the fresh controller instead
+    of reporting workflow completion.
 
 On every loop, check registry drift:
 
@@ -847,6 +990,11 @@ On every loop, check registry drift:
 
 If drift exists, mark the registry stale, reconcile from handoff/proof, and only
 then synthesize or launch the next wave.
+
+After a wave closes, never infer workflow completion from `session-registry.md`
+alone. The registry only knows launched sessions; the workflow backlog or
+milestone plan owns not-yet-launched waves. A closed wave with pending unblocked
+backlog means continue, not final closeout.
 
 If a session crosses scope, changes shared contracts unexpectedly, or cannot
 produce proof after a closeout prompt and reasonable wait, mark it `blocked` and
@@ -874,15 +1022,18 @@ When rolling over the controller, the outgoing controller handoff should include
 Use a compact table in `session-registry.md`:
 
 ```markdown
-| Task | Thread | Worktree | Branch | Commit | Status | Proof | Handoff | Next |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| A1 | <thread-id> | /path | branch | abc123 | verified | pass | handoffs/A1.md | integrate |
+| Task | Role | Run | Title | Thread | Worktree | Branch | Commit | Status | Proof | Handoff | Next |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A1 | worker | r7f2 | Auth Audit: Worker - Matrix [A1] | <thread-id> | /path | branch | abc123 | verified | pass | handoffs/A1.md | integrate |
 ```
 
 ## Completion
 
 A workflow is complete only when:
 
+- the orchestrator Goal matches the whole workflow objective
+- `workflow-state.md` or `milestone-plan.md` has no pending unblocked waves,
+  milestones, phases, follow-up passes, or next actions
 - all required task Goals are complete or explicitly deferred
 - heartbeat automations are paused/deleted
 - session registry is current
@@ -898,3 +1049,7 @@ A workflow is complete only when:
 
 Do not push, open PRs, merge, deploy, or touch production unless the current
 repository workflow and the user's boundary allow it.
+
+If any pending backlog remains, do not call the workflow complete. Continue the
+next unblocked item, or roll over with a handoff whose first next action is the
+exact backlog item to launch or verify.

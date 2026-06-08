@@ -49,3 +49,5 @@ The orchestrator may call the audit complete only after:
 - the verifier or counterevidence packet checked the strongest findings
 - unsupported claims are downgraded
 - registry status matches handoff/proof
+- the workflow backlog has no pending unblocked audit passes or follow-up
+  packets

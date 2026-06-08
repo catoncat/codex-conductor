@@ -16,12 +16,16 @@ Use for runtime incidents, production-like failures, or urgent regressions.
 ```markdown
 mode: evidence-session | implementation-slice
 objective:
+project_constraints_capsule:
+verification_tier:
 runtime_target:
 readback_commands:
 allowed_writes:
 forbidden:
+bootstrap:
 rollback_or_stop_line:
 verification:
+skip_checks:
 budget:
 stop_when:
 handoff_path:

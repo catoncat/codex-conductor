@@ -17,11 +17,15 @@ in parallel.
 ```markdown
 mode: implementation-slice
 objective:
+project_constraints_capsule:
+verification_tier:
 owned_paths:
 allowed_writes:
 forbidden:
 shared_contracts:
+bootstrap:
 verification:
+skip_checks:
 commit_policy:
 budget:
 stop_when:
@@ -43,6 +47,7 @@ Stop and report instead of expanding scope when:
 The orchestrator may integrate only after:
 
 - each write session produced proof or a blocker
+- each worker followed the declared verification tier and bootstrap rules
 - registry status and actual files agree
 - no owned paths overlap unexpectedly
 - final focused verification ran in the integration workspace

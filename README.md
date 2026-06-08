@@ -3,37 +3,253 @@
 `codex-conductor` is a portable Codex skill for coordinating complex work across
 multiple Codex Sessions.
 
-It keeps long-running work recoverable by separating the controller role from
-execution sessions, recording workflow state in files, requiring compact
-handoffs, and verifying evidence before lifecycle claims.
+Use it when one chat is no longer enough: broad audits, implementation waves,
+incident follow-up, migrations, multi-PR cleanup, or any task where another
+Codex session should be able to resume from durable state instead of reading a
+long conversation.
 
-## Use It For
+The conductor separates:
 
-- multi-session audits, migrations, incidents, or implementation waves
-- tasks that need Goals, worktrees, durable handoffs, or heartbeat continuation
-- workflows where a fresh controller should be able to resume from artifacts
+- the controller, which plans, tracks state, launches workers, verifies proof,
+  and reconciles handoffs
+- execution sessions, which do bounded implementation, review, evidence
+  gathering, or verification work
+- project configuration, which lives in your repository instead of inside the
+  public skill
 
-It is intentionally project-agnostic: no Mainline, private repo, or host-local
-tooling is required.
+It does not require Mainline, GitHub, or any private tooling. If those tools are
+available, the conductor can use them. If not, it falls back to workflow files,
+task prompts, compact handoffs, and explicit proof.
 
 ## Install
 
-From a local checkout:
-
-```bash
-npx skills add . -g -a codex -y
-```
-
-Or install from GitHub:
+Install from GitHub:
 
 ```bash
 npx skills add https://github.com/catoncat/codex-conductor -g -a codex -y
 ```
 
+Install from a local checkout:
+
+```bash
+git clone git@github.com:catoncat/codex-conductor.git
+cd codex-conductor
+npx skills add . -g -a codex -y
+```
+
+After installation, ask Codex to use the skill:
+
+```text
+Use $codex-conductor to coordinate this migration across multiple Codex Sessions.
+```
+
+## When To Use It
+
+Good fits:
+
+- a feature or refactor that needs several isolated worktrees
+- an audit where findings need evidence and counterevidence
+- an incident where runtime facts, fixes, and readback must stay separate
+- a review/fix wave where review findings should not be mixed with fixes
+- a long-running task that needs durable checkpoints and compact handoffs
+
+Poor fits:
+
+- a small one-file fix
+- a quick answer or explanation
+- ordinary parallel file reads that fit in one session
+- work where the user wants a single agent to directly edit and finish
+
+## Add Project Configuration
+
+For best results, add a project profile to repositories where you expect to use
+the conductor repeatedly:
+
+```text
+.codex-conductor/
+  project.md
+```
+
+Start from the bundled template:
+
+```bash
+mkdir -p .codex-conductor
+cp ~/.agents/skills/codex-conductor/templates/project-profile.md .codex-conductor/project.md
+```
+
+Then fill in the parts that matter for your project:
+
+```markdown
+# Codex Conductor Project Profile
+
+## Package Manager
+- Use: pnpm
+- Do not use: npm
+
+## Verification Tiers
+### docs-only
+- Commands: git diff --check
+- Skip: dependency install, database setup, full test suite
+
+### integration-runtime
+- Bootstrap: install dependencies if missing; ensure test env exists
+- Commands: focused integration test, targeted verify command
+- Skip: full suite until controller integration
+
+## Worktree Environment
+- New worktrees require dependency install before checks.
+- Schema or migration work must use isolated databases.
+
+## Lifecycle
+- Branch naming: codex/<short-task>
+- Commit policy: commit verified slices only.
+- PR policy: workers open PRs only when explicitly assigned.
+
+## Forbidden Commands Or Actions
+- Do not run production mutations without explicit authorization.
+```
+
+Split the profile only if it grows:
+
+```text
+.codex-conductor/
+  project.md       # short overview and defaults
+  verification.md  # expensive checks, tiers, skip rules
+  worktree.md      # env, dependencies, databases, generated files
+  lifecycle.md     # branch, commit, issue, PR, release policy
+```
+
+The conductor also reads normal repo instructions such as `AGENTS.md`,
+`CONTRIBUTING.md`, and workflow docs. The `.codex-conductor/` profile exists so
+conductor-specific rules are easy to find and do not get buried in product
+documentation.
+
+## Optional Host Configuration
+
+Machine-specific capabilities belong in a private host profile, not in the
+public skill or project repository:
+
+```text
+~/.config/codex-conductor/host.md
+```
+
+Use it for local tools and policies such as:
+
+- whether a Goal tool or thread launcher is available
+- whether GitHub CLI is configured
+- how to use local lifecycle tools
+- private safety boundaries
+
+Set `CODEX_CONDUCTOR_HOME` if you want a different host profile directory.
+
+## What The Conductor Creates
+
+For a durable workflow, the controller usually creates:
+
+```text
+docs/workflows/<yyyy-mm-dd>-<short-slug>/
+  workflow-state.md
+  session-registry.md
+  tasks/
+  prompts/
+  handoffs/
+```
+
+The exact shape depends on the task. The conductor should create the smallest
+control plane that keeps the work recoverable.
+
+The most important file is `workflow-state.md`. It records:
+
+- objective and non-goals
+- workflow shape and complexity budget
+- Project Constraints Capsule
+- active sessions and proof gates
+- shrink/stop conditions
+- controller checkpoints
+
+## Project Constraints Capsule
+
+Before launching workers, the controller summarizes project-specific rules into
+a compact capsule. Worker prompts receive only the relevant subset.
+
+Example:
+
+```markdown
+## Project Constraints Capsule
+source_files:
+- .codex-conductor/project.md
+- AGENTS.md
+capability_mode: portable
+package_manager: pnpm
+verification_tiers:
+- tier: docs-only
+  commands: git diff --check
+  skip: runtime bootstrap, database setup
+- tier: integration-runtime
+  bootstrap: install dependencies if missing; ensure test env exists
+  commands: focused integration test
+worktree_bootstrap:
+- new worktrees must confirm dependency and env state before tests
+forbidden_commands:
+- do not mutate production without explicit authorization
+```
+
+This is the mechanism that prevents every worker from rediscovering the same
+environment rules.
+
+## Common Prompt Shapes
+
+Start a new workflow:
+
+```text
+Use $codex-conductor.
+
+Coordinate the remaining checkout migration. Create a durable workflow, split
+the work into independent sessions only where useful, and make sure every worker
+gets the project constraints capsule before it starts.
+```
+
+Resume an existing workflow:
+
+```text
+Use $codex-conductor.
+
+Resume docs/workflows/2026-06-08-checkout-migration. Read workflow-state.md and
+session-registry.md first, reconcile handoffs, then continue the next smallest
+safe step.
+```
+
+Run a read-only audit:
+
+```text
+Use $codex-conductor for a read-only audit of the auth boundary. Keep review and
+fixes separate. Findings need file/line evidence and counterevidence checks.
+```
+
+Coordinate implementation workers:
+
+```text
+Use $codex-conductor to split this into implementation slices. Workers may write
+only their assigned paths, must use isolated worktrees, and must produce focused
+proof before handoff.
+```
+
 ## Contents
 
-- `SKILL.md`: the main controller/session workflow
-- `references/harness-patterns.md`: orchestration pattern guide
+- `SKILL.md`: the main controller/session workflow.
+- `references/configuration.md`: project and host configuration guide.
+- `references/harness-patterns.md`: orchestration patterns and failure modes.
+- `templates/project-profile.md`: starter `.codex-conductor/project.md`.
 - `templates/`: starter shapes for audits, incidents, implementation waves,
-  review-fix waves, and design tournaments
-- `agents/openai.yaml`: skill metadata for OpenAI/Codex installs
+  review-fix waves, and design tournaments.
+- `agents/openai.yaml`: skill metadata for OpenAI/Codex installs.
+
+## Design Principles
+
+- One controller owns planning and reconciliation.
+- Workers own bounded execution.
+- Durable files are the source of truth, not the chat transcript.
+- Proof comes from commands, files, runtime readback, or explicit handoffs.
+- Project-specific behavior belongs in `.codex-conductor/`, not in the public
+  skill.
+- Use the smallest orchestration shape that preserves correctness.

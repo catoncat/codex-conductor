@@ -27,9 +27,13 @@ counterevidence_or_uncertainty:
 ```markdown
 mode: review-fix-session
 finding_ids:
+project_constraints_capsule:
+verification_tier:
 allowed_writes:
 forbidden:
+bootstrap:
 verification:
+skip_checks:
 commit_policy:
 budget:
 stop_when:
@@ -43,5 +47,6 @@ The orchestrator closes the wave only after:
 - every actionable finding is fixed, deferred with reason, or rejected with
   counterevidence
 - each fix has focused verification
+- each fix followed the declared project constraints and verification tier
 - the final verifier or evidence packet confirms the finding-to-fix mapping
 - residual risk is recorded in the final handoff

@@ -16,6 +16,8 @@ work.
 ```markdown
 mode: audit-track
 objective:
+project_constraints_capsule:
+verification_tier: docs-only | script-or-guard | production-or-ops
 read_paths:
 allowed_writes: <workflow-dir>/outputs/<task-id>/ only
 forbidden:

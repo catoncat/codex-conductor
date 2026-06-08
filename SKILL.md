@@ -1,6 +1,6 @@
 ---
 name: codex-conductor
-description: Use when a complex task needs coordinated Codex Sessions, long-running milestones, cross-session state, worktrees, verification sessions, heartbeat continuation, or durable workflow artifacts without project-specific lifecycle tooling.
+description: Use when a complex task needs coordinated Codex Sessions, long-running milestones, cross-session state, worktrees, verification sessions, heartbeat continuation, project-specific constraints, or durable workflow artifacts. Use this even in portable/no-Mainline environments; the conductor discovers available capabilities and project profiles at runtime.
 ---
 
 # Codex Conductor
@@ -45,6 +45,106 @@ Use this for complex work that needs durable coordination, for example:
 
 Do not use it for single-turn fixes, small scoped code changes, or ordinary
 parallel subagent fanout inside one session.
+
+## Capability And Project Profile Discovery
+
+Before choosing a workflow shape or writing worker prompts, discover the local
+runtime profile. The conductor is portable: it must not assume Mainline,
+GitHub, a specific package manager, a database, a thread launcher, or any
+host-local tool. It should use capabilities when they are present and fall back
+to files-only coordination when they are absent.
+
+Read only the files that exist and are relevant:
+
+1. User instructions in the current conversation.
+2. Active workflow artifacts, especially any existing `workflow-state.md`.
+3. Project conductor profile:
+   - `.codex-conductor/project.md`
+   - `.codex-conductor/verification.md`
+   - `.codex-conductor/worktree.md`
+   - `.codex-conductor/lifecycle.md`
+4. Repository agent or contributor instructions, such as `AGENTS.md`,
+   `CLAUDE.md`, `GEMINI.md`, `CONTRIBUTING.md`, or local workflow docs.
+5. Host conductor profile:
+   - `$CODEX_CONDUCTOR_HOME/host.md`
+   - `~/.config/codex-conductor/host.md`
+6. Cheap live detection: lockfiles, package scripts, `.git`, worktree status,
+   available CLIs, issue tracker remotes, and obvious test scripts.
+
+The project profile is the right place for project-specific rules such as
+package manager, worktree environment, database ownership, verification tiers,
+forbidden commands, branch policy, issue labels, or PR conventions. Do not put
+project-specific rules into this public skill. The skill owns the protocol; the
+project profile owns the local facts.
+
+If a profile file contradicts the current user instruction, the user
+instruction wins. If a project profile contradicts a host profile, the project
+profile wins inside that repository.
+
+### Project Constraints Capsule
+
+For every durable workflow, write a compact `Project Constraints Capsule` into
+`workflow-state.md`. For every worker session, copy only the relevant subset
+into the worker task and prompt. The capsule should include:
+
+```markdown
+## Project Constraints Capsule
+source_files:
+- .codex-conductor/project.md
+- AGENTS.md
+capability_mode: managed | portable | files-only
+package_manager:
+verification_tiers:
+- tier:
+  use_when:
+  commands:
+  skip:
+worktree_bootstrap:
+- use_when:
+  steps:
+  forbidden:
+lifecycle:
+- commits:
+- branches:
+- issues_prs:
+forbidden_commands:
+- ...
+worker_prompt_must_include:
+- ...
+```
+
+Use the capsule to prevent repeated environment rediscovery. If a worker hits a
+setup failure that is likely to recur, the controller should update the
+workflow capsule or propose a project-profile update instead of letting every
+worker rediscover the same failure.
+
+Read `references/configuration.md` when setting up a new project profile,
+debugging repeated worker environment failures, or preparing this skill for use
+by another repository.
+
+### Worktree Bootstrap Tiers
+
+Classify verification before launching write-capable workers:
+
+- `docs-only`: documentation or control-plane edits. Do not bootstrap runtime
+  dependencies unless a direct docs check requires them.
+- `script-or-guard`: scripts, guards, or local tooling checks. Run the direct
+  script and targeted verification. Do not bootstrap databases unless the
+  script requires one.
+- `unit-or-component`: code with isolated unit/component proof. Install
+  dependencies only when missing and required by the proof.
+- `integration-runtime`: backend, database, browser, or runtime integration
+  proof. Bootstrap the declared environment before running focused tests.
+- `schema-or-migration`: schema, migration, generated-client, or persistent
+  data changes. Use isolated data stores unless the project profile explicitly
+  allows sharing.
+- `production-or-ops`: live systems. Stay read-only until the user and project
+  rules authorize mutation.
+
+Worker prompts must state the tier, required bootstrap, checks to run, and
+checks to skip. Skipping irrelevant checks is part of correctness; broad
+verification can be deferred to the integration controller when the project
+profile says so.
 
 ## Choose A Task Mode
 
@@ -150,6 +250,8 @@ packet instead of launching another durable gate.
 
 When choosing a shape, read only the relevant files:
 
+- `references/configuration.md` for project profiles, host profiles,
+  capability discovery, and Project Constraints Capsule examples.
 - `references/harness-patterns.md` for orchestration patterns and failure modes.
 - `templates/readonly-audit.md` for evidence-first audits.
 - `templates/implementation-wave.md` for parallel implementation slices.
@@ -400,30 +502,34 @@ Do not keep a controller alive just because it has history.
    `weak-dependency`.
 5. Choose the workflow directory and create only the files needed for that
    shape.
-6. Write the global objective, non-goals, evidence rules, allowed write scope,
-   forbidden actions, verification commands, and stop lines.
-7. Write the chosen workflow shape, complexity budget, dependency shape,
+6. Build the Project Constraints Capsule from profile files and live detection.
+7. Write the global objective, non-goals, capsule, evidence rules, allowed write
+   scope, forbidden actions, verification commands, and stop lines.
+8. Write the chosen workflow shape, complexity budget, dependency shape,
    communication rule, state source of truth, worker-handoff rule, shrink
    trigger, and controller-rollover rule in `workflow-state.md`.
-8. Break work into session-sized tasks only where sessions are useful. Before
+9. Break work into session-sized tasks only where sessions are useful. Before
    creating a Codex Session for read-only work, ask whether a subagent or
    parallel tool can answer it with a compact result. A good task has:
    - task mode
+   - verification tier
+   - relevant Project Constraints Capsule subset
    - clear objective
    - exact read paths
    - allowed write paths
    - forbidden changes
+   - bootstrap steps and checks to skip
    - expected output
    - proof commands or evidence requirement
    - escalation condition
    - commit policy
    - budget and stop condition
    - noise/efficiency reporting requirement
-9. Register delegated or durable tasks in `session-registry.md`.
-10. Create Codex Sessions with the thread tool when available. If no Codex
+10. Register delegated or durable tasks in `session-registry.md`.
+11. Create Codex Sessions with the thread tool when available. If no Codex
    thread tool is available, write starter prompts and tell the user they must
    launch them manually.
-11. After creating each session, immediately update the registry with the actual
+12. After creating each session, immediately update the registry with the actual
    thread id, cwd/worktree path, branch, task mode, allowed writes, budget, and
    next proof checkpoint. Do not rely on planned paths after launch.
 
@@ -621,10 +727,19 @@ Read:
 - <workflow-dir>/operating-rules.md
 - <workflow-dir>/milestone-plan.md
 - <workflow-dir>/tasks/<task-id>.md
+- Any project profile files named by the task capsule
 
 Task mode:
 <audit-track | decision-packet | inventory-packet | implementation-slice |
 evidence-session | review-session | review-fix-session | commit-prep>
+
+Project Constraints Capsule:
+<only the package manager, verification tier, bootstrap, lifecycle, and
+forbidden-action rules relevant to this task>
+
+Verification tier:
+<docs-only | script-or-guard | unit-or-component | integration-runtime |
+schema-or-migration | production-or-ops>
 
 Allowed writes:
 <exact paths or "read-only">
@@ -632,8 +747,14 @@ Allowed writes:
 Forbidden:
 <schema/root config/production/other sessions' files/etc.>
 
+Bootstrap:
+<steps to perform before verification, or "none">
+
 Required proof:
 <commands, file evidence, runtime readback, or "read-only evidence only">
+
+Skip:
+<irrelevant checks that should not be run for this tier>
 
 Budget:
 <max sessions/time/token note/retry limit/stop condition>

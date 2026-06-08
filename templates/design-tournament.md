@@ -17,6 +17,8 @@ where several plausible approaches exist.
 ```markdown
 mode: decision-packet
 objective:
+project_constraints_capsule:
+verification_tier:
 rubric:
 required_evidence:
 forbidden_assumptions:

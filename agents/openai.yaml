@@ -1,4 +1,4 @@
 interface:
   display_name: "Codex Conductor"
-  short_description: "Coordinate multi-session Codex work with durable proof"
-  default_prompt: "Use $codex-conductor to split this complex task into coordinated Codex Sessions with goals, workflow state, and proof handoffs."
+  short_description: "Coordinate multi-session Codex work with project profiles and durable proof"
+  default_prompt: "Use $codex-conductor to coordinate this complex task across Codex Sessions. Discover the project profile, write a Project Constraints Capsule, choose the smallest useful workflow, and require proof handoffs."

@@ -120,6 +120,17 @@ files. Do not ask merely to delay. If the user explicitly asks to continue
 nonstop, make reasonable assumptions, record them in the brief, and continue
 until a real blocker or authorization boundary appears.
 
+When the user answers the clarifying questions and confirms the scope, the
+clarification gate is closed. Do not create a second "ask the user to confirm
+launch" gate unless the next action crosses a new boundary that was not
+covered by the clarified brief, such as product-code mutation, production
+mutation, push/PR/merge/deploy, a larger session budget, or access to sensitive
+data. If the next step is already named, unblocked, inside the complexity
+budget, and within the clarified boundary, write the control plane if needed
+and immediately launch or execute that next step. Treat stopping after only
+producing a plan as a process miss unless the user explicitly asked for plan
+only, the budget is exhausted, or the next action needs fresh authorization.
+
 ### Project Constraints Capsule
 
 For every durable workflow, write a compact `Project Constraints Capsule` into
@@ -667,6 +678,11 @@ reason to leave the next wave implicit.
    communication rule, state source of truth, worker-handoff rule, shrink
    trigger, controller-rollover rule, next-wave launch condition, and naming
    override source in `workflow-state.md`.
+   - A launch condition must describe the next objective condition, not repeat
+     a clarification question that the user has already answered.
+   - Do not write "wait for user confirmation to start" when the user's
+     clarified request already asks the controller to do the work. Use that
+     only for a real authorization boundary.
 10. Break work into session-sized tasks only where sessions are useful. Before
    creating a Codex Session for read-only work, ask whether a subagent or
    parallel tool can answer it with a compact result. A good task has:
@@ -1023,6 +1039,10 @@ stop.
 11. Archive or unpin sessions that are closed.
 12. Check `workflow-state.md` or `milestone-plan.md` for pending backlog before
     stopping.
+    If the only pending item is gated by a generic "user confirmation to
+    launch" condition, re-evaluate it against the current conversation. If the
+    user has already clarified scope and authorized the workflow, remove or
+    reinterpret that gate and continue.
 13. If the next planned wave or task is unblocked and inside the complexity
     budget, launch or execute it. If rollover is needed, write the exact
     next-wave launch instruction and continue in the fresh controller instead

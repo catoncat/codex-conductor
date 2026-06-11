@@ -753,6 +753,59 @@ tooling is noisy or unavailable, fall back to durable handoffs and command/file
 proof. Do not expand into broad transcript or filesystem searches unless the
 task explicitly requires that evidence.
 
+## Codex App Thread Tool Rules
+
+The Codex App thread tools are optional capabilities discovered at runtime. Use
+their current tool schema as the source of truth for accepted parameters, but
+apply these conductor rules whenever the schema leaves a choice open:
+
+- `create_thread`: use only when the user asked for a separate Codex Session or
+  the chosen workflow needs a durable controller, worker, verifier, reviewer, or
+  integration session. Choose `target.type="project"` for repository work and
+  `target.type="projectless"` only for general non-repo tasks.
+- `create_thread.target.projectId`: pass the saved project id or workspace root
+  that the launcher recognizes. Do not pass an ephemeral worktree path unless it
+  is known to be a saved project target.
+- `create_thread.target.environment`: use `{ type: "local" }` only when the new
+  session should share the project checkout. Use `{ type: "worktree" }` for
+  write-capable workers, overlapping work, long-lived tasks, or any slice that
+  needs isolation. If a branch or working-tree start state matters, set
+  `startingState` deliberately and record it in the registry.
+- `create_thread.model`: omit by default. Do not override the model merely
+  because a model name sounds specialized, newer, or Codex-branded. Only pass a
+  model when the user explicitly requested it or the project/host profile gives
+  a current, verified compatibility rule for this account. If you override it,
+  record the reason in `session-registry.md` or `noise_events`.
+- `create_thread.thinking`: omit by default unless the task budget or user
+  instruction calls for a specific reasoning effort. If set, choose the smallest
+  effort that fits the task and record the reason when it affects cost or
+  latency.
+- `send_message_to_thread`: omit `model` and `thinking` by default so the target
+  session keeps its current settings. Use it for bounded closeout, correction,
+  or continuation prompts, not as a way to silently retarget a session onto a
+  different model.
+- `set_thread_title`: after launch, title the session with the assigned session
+  title or compact default. The title is a recovery aid; the registry remains
+  the canonical map from task id to thread id, cwd, branch, and proof.
+- `set_thread_pinned` / `set_thread_archived`: pin only the controller and
+  currently active sessions. Archive or unpin only after the handoff/proof has
+  been reconciled or the session is explicitly abandoned.
+- `handoff_thread`: use only when moving a thread between its checkout and a
+  Codex-managed worktree is the intended lifecycle action. Do not use it as a
+  substitute for creating a properly scoped worker.
+
+After `create_thread`, perform live readback before trusting the registry:
+
+- If the tool returns a thread id, read that id with the smallest accepted
+  `read_thread` call and record actual status, cwd, and title.
+- If the tool returns only a pending worktree id, record it as pending launcher
+  state, then use `list_threads` or another direct launcher readback to find the
+  actual thread id before marking the session `launched` or `active`.
+- If readback shows `systemError`, unsupported model, missing project, failed
+  setup, or no recoverable thread id, record the failed launch as
+  `noise_events`, do not treat it as a worker, and do not launch a replacement
+  until the replacement preflight below is satisfied.
+
 ## Worker Progress And Replacement
 
 Do not replace an active worker merely because its handoff has not landed yet.

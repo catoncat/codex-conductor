@@ -161,6 +161,12 @@ Visible session titles should stay readable, while exact thread ids, worktree
 paths, branches, proof, and handoff paths stay canonical in
 `session-registry.md`.
 
+When Codex App thread tools are available, the conductor lets the launcher keep
+the account-compatible default model unless the user or a verified host profile
+explicitly says otherwise. Thread creation must be followed by live readback:
+pending worktree ids and failed launches are not treated as active workers until
+an actual thread id and status are known.
+
 ## Optional Host Configuration
 
 Machine-specific capabilities belong in a private host profile, not in the

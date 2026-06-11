@@ -1,6 +1,6 @@
 ---
 name: codex-conductor
-description: Use when a complex task needs coordinated Codex Sessions, long-running milestones, cross-session state, worktrees, verification sessions, heartbeat continuation, project-specific constraints, or durable workflow artifacts. Use this even in portable/no-Mainline environments; the conductor discovers available capabilities and project profiles at runtime.
+description: Use in Codex App when a complex task needs coordinated Codex Sessions, long-running milestones, cross-session state, worktrees, verification sessions, heartbeat continuation, project-specific constraints, or durable workflow artifacts. Assumes Codex Goal support; optional lifecycle capabilities and project profiles are discovered at runtime.
 ---
 
 # Codex Conductor
@@ -49,10 +49,11 @@ parallel subagent fanout inside one session.
 ## Capability And Project Profile Discovery
 
 Before choosing a workflow shape or writing worker prompts, discover the local
-runtime profile. The conductor is portable: it must not assume Mainline,
-GitHub, a specific package manager, a database, a thread launcher, or any
-host-local tool. It should use capabilities when they are present and fall back
-to files-only coordination when they are absent.
+runtime profile. The conductor runs in Codex App and assumes Goal support, but
+it must not assume Mainline, GitHub, a specific package manager, a database, a
+thread launcher, or any host-local lifecycle tool. It should use optional
+capabilities when they are present and fall back to durable files plus explicit
+prompts when they are absent.
 
 Read only the files that exist and are relevant:
 
@@ -127,9 +128,12 @@ covered by the clarified brief, such as product-code mutation, production
 mutation, push/PR/merge/deploy, a larger session budget, or access to sensitive
 data. If the next step is already named, unblocked, inside the complexity
 budget, and within the clarified boundary, write the control plane if needed
-and immediately launch or execute that next step. Treat stopping after only
-producing a plan as a process miss unless the user explicitly asked for plan
-only, the budget is exhausted, or the next action needs fresh authorization.
+and immediately continue it according to ownership: execute controller-owned
+control-plane, read-only, or verification work in the controller; launch or
+delegate write-capable implementation, review-fix, schema, runtime, production,
+or other non-controller work. Treat stopping after only producing a plan as a
+process miss unless the user explicitly asked for plan only, the budget is
+exhausted, or the next action needs fresh authorization.
 
 ### Project Constraints Capsule
 
@@ -302,10 +306,18 @@ launch_condition:
 
 Closing a wave is not closing the workflow. After every wave closeout,
 checkpoint state, check the backlog, and continue. If the next item is known,
-unblocked, and inside the complexity budget, launch or execute it. If controller
-context is too large, roll over with an exact next action such as "launch wave
-2 from `<task-file>`"; do not stop with a status report that leaves the next
-wave implicit.
+unblocked, and inside the complexity budget, choose the next action by
+ownership:
+
+- execute controller-owned control-plane, read-only evidence, reconciliation,
+  verification, task-writing, or session-launch work in the controller
+- launch or delegate write-capable implementation, review-fix, schema, runtime,
+  production, or other non-controller work to the right execution session
+- use direct controller execution only under the explicit exception rule
+
+If controller context is too large, roll over with an exact next action such as
+"launch wave 2 from `<task-file>`"; do not stop with a status report that leaves
+the next wave implicit.
 
 Stop only when one of these is true:
 
@@ -860,7 +872,11 @@ Use this conservative rule:
   creating another
 - do not create a heartbeat without an active Goal and a written stop condition
 - store heartbeat state in `workflow-state.md` or the task file:
-  `heartbeat_status`, `last_wakeup`, `wakeups_used`, `wakeups_max`, `stop_when`
+  `heartbeat_status`, `last_wakeup`, `wakeups_used`, `wakeups_max`,
+  `max_steps_per_wakeup`, `stop_when`
+- define the per-wakeup budget before scheduling the heartbeat. Default to one
+  controller checkpoint-level pass per wakeup; allow multiple steps only when
+  `max_steps_per_wakeup` or an equivalent wakeup budget is explicitly written.
 - when the Goal is complete/blocked, or `wakeups_used >= wakeups_max`, pause or
   delete the heartbeat
 
@@ -877,11 +893,15 @@ Before doing work:
   delete this heartbeat and report why.
 - If wakeups_used has reached wakeups_max, pause or delete this heartbeat and
   report the remaining handoff.
+- Read max_steps_per_wakeup or wakeup_budget. If absent, use 1 checkpoint-level
+  controller pass.
 
-Then run a bounded controller loop: do the next smallest safe step, update
-state, check the program backlog, and continue while the next action is
-unblocked, in scope, and inside the heartbeat budget. Stop only on the written
-stop condition, budget limit, blocker, or authorization boundary.
+Then run a bounded wakeup pass: do the next smallest safe checkpoint-level
+controller action, update state, check the program backlog, and stop unless a
+written per-wakeup budget explicitly allows another step. Heartbeat wakeups may
+continue the workflow across wakeups; they must not become an unbounded task
+queue inside a single wakeup. Stop on the written stop condition, wakeup budget,
+blocker, or authorization boundary.
 ```
 
 Prefer short-lived heartbeats for recovery or continuation. For detached,
@@ -1044,7 +1064,12 @@ stop.
     user has already clarified scope and authorized the workflow, remove or
     reinterpret that gate and continue.
 13. If the next planned wave or task is unblocked and inside the complexity
-    budget, launch or execute it. If rollover is needed, write the exact
+    budget, continue it by ownership. Execute controller-owned control-plane,
+    read-only, reconciliation, verification, task-writing, and session-launch
+    work in the controller. Launch or delegate write-capable implementation,
+    review-fix, schema, runtime, production, or other non-controller work to an
+    execution session unless the direct-controller-execution exception is
+    explicitly invoked and recorded. If rollover is needed, write the exact
     next-wave launch instruction and continue in the fresh controller instead
     of reporting workflow completion.
 
@@ -1118,5 +1143,6 @@ Do not push, open PRs, merge, deploy, or touch production unless the current
 repository workflow and the user's boundary allow it.
 
 If any pending backlog remains, do not call the workflow complete. Continue the
-next unblocked item, or roll over with a handoff whose first next action is the
-exact backlog item to launch or verify.
+next unblocked item according to ownership, or roll over with a handoff whose
+first next action is the exact backlog item to launch, execute as controller
+work, or verify.

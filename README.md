@@ -1,6 +1,6 @@
 # Codex Conductor
 
-`codex-conductor` is a portable Codex skill for coordinating complex work across
+`codex-conductor` is a Codex App skill for coordinating complex work across
 multiple Codex Sessions.
 
 Use it when one chat is no longer enough: broad audits, implementation waves,
@@ -17,9 +17,10 @@ The conductor separates:
 - project configuration, which lives in your repository instead of inside the
   public skill
 
-It does not require Mainline, GitHub, or any private tooling. If those tools are
-available, the conductor can use them. If not, it falls back to workflow files,
-task prompts, compact handoffs, and explicit proof.
+It assumes Codex Goal support. It does not require Mainline, GitHub, or any
+private tooling. If optional lifecycle tools are available, the conductor can
+use them. If not, it falls back to workflow files, task prompts, compact
+handoffs, and explicit proof.
 
 The controller uses a Codex Goal for the whole workflow. If it splits work into
 waves, milestones, phases, or follow-up passes, it keeps a small backlog in
@@ -171,7 +172,8 @@ public skill or project repository:
 
 Use it for local tools and policies such as:
 
-- whether a Goal tool or thread launcher is available
+- thread launcher availability
+- Goal naming and lifecycle conventions
 - whether GitHub CLI is configured
 - how to use local lifecycle tools
 - private safety boundaries
@@ -246,7 +248,9 @@ Coordinate the remaining checkout migration. Create a durable workflow, split
 the work into independent sessions only where useful, and make sure every worker
 gets the project constraints capsule before it starts. Use the controller Goal
 to keep going through all planned waves until the backlog is complete, blocked,
-or explicitly deferred. Start by restating the real goal, deliverables, scope,
+or explicitly deferred. For each next item, execute controller-owned control
+plane or verification work in the controller, and delegate write-capable work to
+execution sessions. Start by restating the real goal, deliverables, scope,
 acceptance criteria, and any questions that materially affect the plan.
 ```
 

@@ -136,7 +136,7 @@ Use `~/.config/codex-conductor/host.md` for private machine capabilities:
 
 ## Available Capabilities
 - Thread launcher:
-- Goal tool:
+- Goal naming and lifecycle conventions:
 - GitHub CLI:
 - Issue tracker:
 - Local memory/search:

@@ -202,6 +202,13 @@ docs/workflows/<yyyy-mm-dd>-<short-slug>/
 The exact shape depends on the task. The conductor should create the smallest
 control plane that keeps the work recoverable.
 
+These files are recovery state first, not automatically product history. In a
+long-running workflow, keep noisy controller updates on the controller/private
+side. When product work is ready to publish, assemble a clean delivery branch
+from the intended base by cherry-picking verified product commits. If the
+workflow needs a public record, prefer one compact milestone archive commit over
+many heartbeat or registry commits.
+
 The most important file is `workflow-state.md`. It records:
 
 - refined orchestration brief
@@ -236,6 +243,9 @@ verification_tiers:
   commands: focused integration test
 worktree_bootstrap:
 - new worktrees must confirm dependency and env state before tests
+control_plane_publication:
+- default: keep high-frequency controller state out of product main
+- delivery: cherry-pick verified product commits from the intended base
 forbidden_commands:
 - do not mutate production without explicit authorization
 ```

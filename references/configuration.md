@@ -177,6 +177,9 @@ verification_tiers:
 worktree_bootstrap:
 - new worktrees must confirm env and dependency state before tests
 - schema or migration work must use isolated data stores
+control_plane_publication:
+- default: keep controller state local/private or on an orchestration branch
+- delivery: cherry-pick verified product commits from the intended base
 forbidden_commands:
 - do not run destructive data commands without explicit authorization
 ```

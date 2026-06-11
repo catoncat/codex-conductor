@@ -161,6 +161,9 @@ lifecycle:
 - commits:
 - branches:
 - issues_prs:
+control_plane_publication:
+- default:
+- delivery:
 forbidden_commands:
 - ...
 worker_prompt_must_include:
@@ -171,6 +174,11 @@ Use the capsule to prevent repeated environment rediscovery. If a worker hits a
 setup failure that is likely to recur, the controller should update the
 workflow capsule or propose a project-profile update instead of letting every
 worker rediscover the same failure.
+
+Keep `control_plane_publication` short. If the project profile does not say
+otherwise, the default is: keep high-frequency controller state out of published
+product history; deliver verified product commits from a clean base, usually by
+cherry-picking them into a delivery branch.
 
 Read `references/configuration.md` when setting up a new project profile,
 debugging repeated worker environment failures, or preparing this skill for use
@@ -518,6 +526,22 @@ or runs a write-capable command, it must classify the target:
 Product code, tests, schema, configs, package/dependency files, and repository
 implementation files are not controller-owned artifacts.
 
+Committing or publishing controller-owned artifacts is a second gate. Before the
+controller stages or commits workflow-state, registry, handoff, heartbeat, or
+checkpoint files, classify the destination:
+
+- `local-or-private-control-plane`: recoverable controller state that may live
+  in the canonical workflow directory or a private/orchestration branch, but is
+  not intended for product `main`.
+- `milestone-archive`: one compact public summary of objective, proof,
+  decisions, and remaining work, written at a milestone boundary when useful.
+- `product-delivery`: verified product changes only. Raw controller trace does
+  not belong here.
+
+If the destination is unclear, do not turn controller trace into product history
+by default. Record the chosen publication policy in `workflow-state.md` instead
+of creating a new registry or lifecycle file.
+
 ## Durable Workspace
 
 Create a neutral workflow artifact directory. Do not default to a review name.
@@ -565,6 +589,11 @@ acceptance criteria would otherwise be easy to overclaim.
 
 Keep files terse. They are a control plane, not a diary. If adding a file would
 mainly restate another artifact, merge the content into the existing file.
+
+The workflow directory being inside the repository does not mean every update
+should be published to the product branch. It is the recovery surface first.
+Publication is governed by the control-plane policy and the repository lifecycle
+rules.
 
 ## State Sync And Controller Rollover
 
@@ -685,11 +714,12 @@ reason to leave the next wave implicit.
 7. Build the Project Constraints Capsule from profile files and live detection.
 8. Write the refined brief, global objective, non-goals, capsule, identity,
    program backlog, Goal completion rule, evidence rules, allowed write scope,
-   forbidden actions, verification commands, and stop lines.
+   forbidden actions, verification commands, control-plane publication policy,
+   and stop lines.
 9. Write the chosen workflow shape, complexity budget, dependency shape,
    communication rule, state source of truth, worker-handoff rule, shrink
-   trigger, controller-rollover rule, next-wave launch condition, and naming
-   override source in `workflow-state.md`.
+   trigger, controller-rollover rule, delivery/commit policy, next-wave launch
+   condition, and naming override source in `workflow-state.md`.
    - A launch condition must describe the next objective condition, not repeat
      a clarification question that the user has already answered.
    - Do not write "wait for user confirmation to start" when the user's
@@ -860,16 +890,43 @@ without writing repo files, and record the duplicate launch as `noise_events`.
 Large workflows should not accumulate one huge dirty worktree. Small verified
 checkpoints reduce conflict cost and make recovery easier.
 
+Conductor has two different histories to protect: controller recovery history
+and product delivery history. Keep them separate unless the project profile
+explicitly says otherwise. High-frequency `workflow-state`, registry, handoff,
+heartbeat, and checkpoint updates can be durable without becoming first-parent
+product story.
+
 Default for write-capable execution sessions:
 
 - use an isolated git worktree when the task may overlap with other sessions,
   run for a long time, or touch more than one bounded component
 - commit each coherent, verified slice when the task policy allows commits
 - keep commits scoped to the assigned files and objective
+- keep product commits free of workflow-state, registry, handoff, heartbeat, and
+  controller checkpoint updates unless the assigned task is explicitly a
+  docs/control-plane slice
 - prefer multiple small commits over one large commit when each commit has its
   own proof
 - stop before push, PR, merge, release, deploy, or production action unless the
   user and repository workflow explicitly allow that boundary
+
+Default publication path for a noisy long-running workflow:
+
+1. Keep the controller branch/worktree as the recoverable orchestration surface.
+2. At a milestone or release boundary, start a delivery branch from the intended
+   product base.
+3. Cherry-pick only verified product commits, plus directly relevant product
+   docs/tests when they belong to the delivery.
+4. Run the required verification on the delivery branch.
+5. If Mainline or another lifecycle tool exists, run its normal start, append,
+   seal, or backfill flow on the delivery branch/commit set, not on raw
+   controller trace.
+6. Publish, PR, merge, release, or deploy only when that boundary is authorized.
+
+If the workflow needs a public record of the orchestration itself, prefer one
+milestone archive commit over many controller commits. The archive should say
+what was decided, what proof exists, and what remains; it should not replay the
+controller's heartbeat history.
 
 When using a thread launcher, do not pre-fill task files with manual worktree
 paths unless those paths are actually usable by the launcher. After launch, the
@@ -1032,6 +1089,9 @@ Worktree/commit:
   edits; do not invent replacement names when assigned names are missing or
   unusable.
 - After each coherent verified slice, create a scoped commit if authorized.
+- Keep product commits free of workflow-state, registry, handoff, heartbeat, and
+  checkpoint files unless this task is explicitly assigned a docs/control-plane
+  slice.
 - Do not push, open PRs, merge, deploy, or touch production unless explicitly
   authorized.
 
@@ -1186,6 +1246,11 @@ A workflow is complete only when:
 - proof commands/readbacks are recorded
 - write-capable sessions have either committed their verified slices or
   documented why they could not
+- if product work will be published, the control-plane publication boundary has
+  been satisfied: verified product commits are deliverable from the intended
+  base, raw controller trace is kept private/local or compressed into an
+  intentional milestone archive, and any available lifecycle tool has been run
+  on the delivery branch/commit set
 - orchestrator Goal is updated to complete
 - final handoff says what is done, what remains, and which sessions were closed
 - noise/efficiency notes have been captured for future workflow improvement

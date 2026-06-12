@@ -154,6 +154,71 @@ Use `~/.config/codex-conductor/host.md` for private machine capabilities:
 
 Do not commit host profiles to public repositories.
 
+## Subagent Capability And Host Tuning
+
+Subagents are a Codex runtime capability, not a requirement of this skill. The
+conductor may use them when the current session exposes a subagent or parallel
+tool surface. Do not assume a user-local skill with a specific name exists.
+
+Use subagents for context isolation when the controller would otherwise need to
+read large worker transcripts, tool outputs, logs, or status trails. The
+subagent should return a compact answer and must not create durable workflow
+objects unless explicitly assigned that role.
+
+Recommended optional host tuning:
+
+```toml
+[features]
+multi_agent = true
+child_agents_md = true # optional / under development if supported
+enable_fanout = true   # optional / under development if supported
+
+[agents]
+max_threads = 6
+max_depth = 1
+```
+
+Treat these as tuning, not installation requirements. If subagent tools are
+missing, check `codex features list` and the tool surface available in the
+current session. Do not enable `multi_agent_v2` unless the current Codex install
+explicitly supports it and the user asks for it. Raise `agents.max_threads` only
+when more parallel workers are intentionally useful; keep `max_depth = 1` by
+default to avoid recursive fanout.
+
+## Doctor-Style Tuning Reminders
+
+During capability and project-profile discovery, the controller should give one
+short reminder when it finds a repeated avoidable failure mode:
+
+- host: missing subagent capability, missing thread tool, missing lifecycle CLI,
+  or host profile absent for known private tooling
+- project: repeated worktree setup failure, unclear verification tiers, missing
+  generated-file rule, database ownership ambiguity, or recurring env/bootstrap
+  blockers
+
+If current authorization covers repository edits and the fix is small,
+repo-specific, and low risk, the controller may add a compact
+`.codex-conductor/project.md` entry directly. If the fix is machine-specific,
+write it only when current authorization clearly covers personal host
+configuration. Otherwise, show the exact recommended setting and continue with
+fallback behavior.
+
+## Stalled Worker Diagnosis Prompt
+
+Use this shape when a worker appears stuck and compact handoff/proof is missing
+or contradictory:
+
+```text
+Use $codex-conductor.
+
+Classify the worker as progressing, closing, env-stuck, stalled, invalid, or
+contradictory. Use compact handoffs and proof first. If subagent capability is
+available, use a read-only explorer to summarize transcript/status evidence
+before the controller reads raw transcript. If the worker is invalid or must be
+replaced, send STAND DOWN first and let the replacement inherit only compact
+facts, proof pointers, and trusted commits/handoffs.
+```
+
 ## Capsule Example
 
 After reading the relevant profiles, the controller writes a short capsule into

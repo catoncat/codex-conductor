@@ -82,6 +82,24 @@ If a profile file contradicts the current user instruction, the user
 instruction wins. If a project profile contradicts a host profile, the project
 profile wins inside that repository.
 
+During discovery, give one short doctor-style reminder when the host or project
+would benefit from configuration, but do not block the workflow on optional
+tuning. Examples:
+
+- host: subagent capability is unavailable, thread tools are missing, or local
+  lifecycle tools are not installed
+- project: repeated worker setup failures, missing worktree environment rules,
+  unclear verification tiers, or recurring generated-file/database ownership
+  issues
+
+If the user has granted write access and the missing project rule is concrete,
+low risk, and repo-specific, the controller may add or update a compact
+`.codex-conductor/project.md` entry itself. Machine-specific settings belong in
+the host profile or user configuration, not in the public skill or project
+repository. Add or update machine-level host/config rules only when the current
+authorization clearly covers personal host configuration; otherwise give the
+user the exact recommended setting and continue with fallback behavior.
+
 ## Clarify The Assignment First
 
 Before creating a durable workflow, optimize the user's initial prompt into a
@@ -247,7 +265,8 @@ Use existing capabilities as building blocks:
 
 - direct controller execution only as an explicit exception, described below
 - subagents or parallel tools inside the controller session for lightweight,
-  read-only exploration, fast review, file/diff inspection, and draft packets
+  read-only exploration, fast review, file/diff inspection, transcript or
+  tool-output summarization, and draft packets
 - exploratory or audit sessions when independent evidence can be gathered in
   parallel and the result needs durable thread/worktree/handoff state
 - implementation sessions in isolated worktrees when write scopes are separable
@@ -266,8 +285,8 @@ Use existing capabilities as building blocks:
 3. Add independent verification when the result is high-stakes, expensive to
    unwind, or prone to premature closure.
 4. Add a complexity budget: max active sessions, required control-plane files,
-   expected proof, gates that must stay separate, gates that may be joined,
-   allowed elapsed time, and stop conditions.
+   expected proof, controller context budget, gates that must stay separate,
+   gates that may be joined, allowed elapsed time, and stop conditions.
 5. Save the harness as workflow artifacts so a later session can resume without
    reconstructing intent from chat history.
 
@@ -278,6 +297,12 @@ the controller just because the template contains that capability.
 Default budget: one write-capable worker plus at most one independent reviewer
 or verifier. Exceed it only when work has independent write surfaces,
 independent proof, and a cheap join condition.
+
+Default controller context budget: one minimal status readback per active
+worker after launch, then compact handoffs and proof pointers only. A second
+read of the same worker, any long transcript/tool-output read, or any
+process-forensics read enters shrink mode unless the user explicitly asked for
+forensics.
 
 Treat the budget as a hard guard until fresh evidence changes it. Before adding
 a worker, gate, template, checklist, runbook, or durable artifact, answer:
@@ -401,6 +426,9 @@ In shrink mode:
 
 - do not launch new sessions or worktrees unless the existing actor is
   `stalled`/`invalid` and the next proof is truly blocked
+- do not spend controller context reconstructing worker state from long
+  transcripts. Request a progress ping, read a compact handoff, or use a
+  subagent/parallel-tool summarizer when that capability is available
 - do not create new artifact classes, templates, runbooks, or checklists; fold
   state into `workflow-state.md`, `session-registry.md`, `milestone-plan.md`, or
   the latest handoff
@@ -440,6 +468,8 @@ controller only needs a compact answer:
 - small evidence lookup
 - fast decision-packet draft
 - parallel file reads or API/doc checks
+- worker transcript, tool-output, or status summarization when the handoff is
+  missing, stale, too long, or contradictory
 - work that can be rerun cheaply if the answer is incomplete
 
 Use a Codex Session when the task needs durable lifecycle state:
@@ -613,6 +643,65 @@ If controller context is already large, do not compensate by reading more worker
 context. First checkpoint controller state, then continue from compact workflow
 artifacts or roll over to a fresh controller.
 
+### Controller Context Budget
+
+Treat controller context as the scarce orchestration resource. For each active
+worker, the controller gets one minimal launcher readback after creation or
+handoff due date. After that, routine synchronization must use compact progress
+pings, handoffs, commits, proof files, or registry rows.
+
+The controller must enter shrink mode before doing any of the following:
+
+- reading the same worker transcript again for routine status
+- reading full tool outputs or long transcript history
+- reading multiple worker transcripts to synthesize a wave summary
+- keeping old worker details in chat instead of checkpointing them to files
+
+When shrink mode is triggered, first ask the worker for a compact closeout or
+progress ping. If that is unavailable and a subagent or parallel-tool capability
+exists, delegate transcript/status summarization to that ephemeral actor and
+consume only its short result.
+
+### Transcript Delegation Rule
+
+Long transcript and tool-output reads are not controller synchronization. They
+are diagnostics. If a subagent capability is available, use an ephemeral
+read-only explorer for transcript/status diagnosis before spending controller
+context on the raw material. Do not assume a local skill with a specific name
+exists; discover the current runtime capability and fall back when it is absent.
+
+The explorer must not edit files or create durable workflow objects. Give it a
+bounded prompt and require this compact output:
+
+```text
+conclusion: progressing | closing | env-stuck | stalled | invalid | contradictory
+evidence: <short file/thread/command pointer>
+recoverable: yes | no | unclear
+recommended_action: progress-ping | closeout-same-worker | bounded-recovery | stand-down-and-replace | controller-decision
+controller_should_read_raw: no | yes, only <specific slice>
+```
+
+If no subagent capability is available, send one compact closeout prompt to the
+worker and then use the smallest thread read the tool supports. Do not poll full
+transcripts to rebuild state.
+
+### Progress Ping
+
+For active workers that are not ready for a final handoff, request at most one
+short progress ping before replacement decisions:
+
+```text
+status: progressing | closing | env-stuck | stalled | invalid
+current_evidence:
+blocker:
+next_step:
+need_controller:
+```
+
+Progress pings are for synchronization, not a new polling loop. If the ping is
+missing, stale, or contradictory, classify the worker and follow replacement
+preflight instead of repeatedly asking.
+
 For workflows that use worker sessions, each worker final handoff should be
 short enough for the controller to read directly, usually 50-100 lines. Use this
 compact shape:
@@ -642,6 +731,7 @@ do_not_read_transcript_unless:
 - commit/proof missing
 - scope crossed
 - result contradicts registry
+- none beyond listed exceptions
 ```
 
 Long logs, full test output, large API JSON, and long diffs should be stored as
@@ -650,8 +740,9 @@ registry rows.
 
 Direct worker-thread reads are an exception path. Start with the smallest recent
 status read the tool supports, preferably one recent turn without tool outputs.
-Use full outputs only when the handoff/proof is missing, contradictory, or the
-user asks for process forensics. Record that escalation as `noise_events`.
+Use full outputs only when the handoff/proof is missing, contradictory, a
+subagent summarizer is unavailable or insufficient, or the user asks for process
+forensics. Record that escalation as `noise_events`.
 
 After each wave or major integration in a long workflow, write a compact
 controller checkpoint for the next controller:
@@ -720,6 +811,9 @@ reason to leave the next wave implicit.
    communication rule, state source of truth, worker-handoff rule, shrink
    trigger, controller-rollover rule, delivery/commit policy, next-wave launch
    condition, and naming override source in `workflow-state.md`.
+   - Include the controller context budget: the default is one minimal status
+     readback per active worker, then compact pings, handoffs, and proof
+     pointers only.
    - A launch condition must describe the next objective condition, not repeat
      a clarification question that the user has already answered.
    - Do not write "wait for user confirmation to start" when the user's
@@ -847,15 +941,32 @@ Before launching any replacement worker, classify the existing worker state:
   analysis progress, implementation progress, or a near-complete conclusion.
 - `closing`: the worker has enough evidence and is only slow to write the
   compact handoff.
+- `env-stuck`: the worker is blocked on recoverable environment, dependency,
+  generated-file, database, formatter, or verification setup, and the project or
+  host profile has a plausible recovery rule.
 - `stalled`: no recent useful progress, repeated tool/runtime failure, or no
   recoverable state.
 - `invalid`: the worker crossed scope, writes outside its allowed boundary,
   contradicts known evidence, or cannot produce required proof.
+- `contradictory`: handoff, registry, proof, commit, or recent status disagree
+  enough that the controller cannot safely classify the result.
 
-If the worker is `progressing` or `closing`, keep it as the primary worker. The
-controller may send one compact closeout prompt asking it to stop expanding,
-write the required handoff from existing evidence, and return final. Then wait
-a reasonable window for the task type instead of launching a replacement.
+Default actions:
+
+| State | Controller action |
+| --- | --- |
+| `progressing` | Keep the worker primary; wait or request one progress ping. |
+| `closing` | Send one compact closeout prompt and wait a reasonable window. |
+| `env-stuck` | Apply the project/host recovery rule once, or ask for a compact blocker if no rule exists. |
+| `stalled` | Run replacement preflight; replace only after the closeout path fails. |
+| `invalid` | Send `STAND DOWN`, stop trusting further writes, and prepare replacement. |
+| `contradictory` | Use a read-only subagent summarizer when available; replace only if the contradiction is unrecoverable. |
+
+If the worker is `progressing`, `closing`, or recoverably `env-stuck`, keep it
+as the primary worker. The controller may send one compact progress-ping,
+recovery, or closeout prompt asking it to stop expanding, write the required
+handoff from existing evidence, and return final. Then wait a reasonable window
+for the task type instead of launching a replacement.
 
 Replacement preflight is mandatory. Before launching a replacement, the
 controller must have:
@@ -865,6 +976,9 @@ controller must have:
   worker failure
 - one minimal direct status read unless the worker is already known invalid
 - one closeout prompt unless the worker crossed scope or would risk bad writes
+- one read-only subagent/parallel-tool transcript diagnosis when that
+  capability is available and the issue is missing, long, stale, or
+  contradictory transcript evidence
 - a written reason why the next step is blocked and existing evidence cannot be
   recovered
 - a stop plan in case the original worker later appears
@@ -876,6 +990,7 @@ Replacement is allowed only when one of these is true:
 
 - the worker is `stalled` after a direct status read and one closeout prompt;
 - the worker is `invalid`;
+- the worker is unrecoverably `contradictory` after compact diagnosis;
 - the next workflow step is blocked and the worker has no recoverable evidence;
 - the handoff/proof remains missing after the closeout window and the thread
   status does not show fresh progress;
@@ -884,6 +999,23 @@ Replacement is allowed only when one of these is true:
 If a replacement is launched and the original worker later appears with useful
 progress, choose one primary worker immediately, instruct the other to stop
 without writing repo files, and record the duplicate launch as `noise_events`.
+
+### STAND DOWN
+
+Use `STAND DOWN` when a worker is invalid, superseded, duplicated, or about to
+be replaced. The instruction must be explicit:
+
+```text
+STAND DOWN. Stop all file edits and do not run more implementation, verification,
+commit, seal, push, PR, deploy, or production actions. Return only a compact
+status/handoff from existing evidence, including any uncommitted changes and
+proof already produced.
+```
+
+After sending `STAND DOWN`, mark the registry row as `superseded`, `blocked`, or
+`invalid` with the reason. A replacement prompt may inherit only compact facts,
+proof pointers, and trusted commits/handoffs from the old worker, not the full
+transcript.
 
 ## Worktree And Commit Policy
 

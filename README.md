@@ -17,10 +17,10 @@ The conductor separates:
 - project configuration, which lives in your repository instead of inside the
   public skill
 
-It assumes Codex Goal support. It does not require Mainline, GitHub, or any
-private tooling. If optional lifecycle tools are available, the conductor can
-use them. If not, it falls back to workflow files, task prompts, compact
-handoffs, and explicit proof.
+It assumes Codex Goal support. It does not require Mainline, GitHub, a local
+multi-agent skill, or any private tooling. If optional lifecycle and subagent
+capabilities are available, the conductor can use them. If not, it falls back
+to workflow files, task prompts, compact handoffs, and explicit proof.
 
 The controller uses a Codex Goal for the whole workflow. If it splits work into
 waves, milestones, phases, or follow-up passes, it keeps a small backlog in
@@ -69,8 +69,39 @@ Poor fits:
 
 - a small one-file fix
 - a quick answer or explanation
-- ordinary parallel file reads that fit in one session
+- ordinary parallel file reads that fit in one session; use subagents directly
+  for that when available instead of creating a durable conductor workflow
 - work where the user wants a single agent to directly edit and finish
+
+## Subagent Capability And Host Tuning
+
+`codex-conductor` is a skill. Subagents are a Codex capability exposed by the
+current runtime when available. The conductor must not assume a user-local skill
+with a specific name exists.
+
+Subagents are useful for context isolation: a short-lived explorer can read a
+large worker transcript, test log, or status trail and return a compact result
+so the controller does not carry raw intermediate output.
+
+Recommended optional host tuning:
+
+```toml
+[features]
+multi_agent = true
+child_agents_md = true # optional / under development if supported
+enable_fanout = true   # optional / under development if supported
+
+[agents]
+max_threads = 6
+max_depth = 1
+```
+
+Treat these as tuning, not install requirements. If subagent tools are missing,
+check `codex features list` and the tool surface available in the current
+session. Do not enable `multi_agent_v2` unless the current Codex install
+explicitly supports it and the user asks for it. Raise `agents.max_threads` only
+when more parallel workers are intentionally useful; keep `max_depth = 1` by
+default to avoid recursive fanout.
 
 ## Add Project Configuration
 
@@ -111,6 +142,9 @@ Then fill in the parts that matter for your project:
 ## Worktree Environment
 - New worktrees require dependency install before checks.
 - Schema or migration work must use isolated databases.
+- If workers repeatedly fail on environment, generated files, or verification
+  setup, add a project-specific recovery rule here instead of making every
+  worker rediscover it.
 
 ## Lifecycle
 - Identity and naming:
@@ -253,6 +287,14 @@ forbidden_commands:
 This is the mechanism that prevents every worker from rediscovering the same
 environment rules.
 
+The controller should give a short doctor-style reminder when it discovers a
+missing host capability or project rule that would prevent repeated failures. If
+the user has granted write access and the fix is a small repo-specific profile
+entry, the controller may add it directly. Machine-specific settings belong in
+the host profile or user configuration; add them only when current authorization
+covers personal host config, otherwise show the recommended setting and continue
+with the fallback path.
+
 ## Common Prompt Shapes
 
 Start a new workflow:
@@ -293,6 +335,19 @@ Coordinate implementation workers:
 Use $codex-conductor to split this into implementation slices. Workers may write
 only their assigned paths, must use isolated worktrees, and must produce focused
 proof before handoff.
+```
+
+Diagnose a stalled worker:
+
+```text
+Use $codex-conductor.
+
+Classify the worker as progressing, closing, env-stuck, stalled, invalid, or
+contradictory. Use compact handoffs and proof first. If subagent capability is
+available, use a read-only explorer to summarize transcript/status evidence
+before the controller reads raw transcript. If the worker is invalid or must be
+replaced, send STAND DOWN first and let the replacement inherit only compact
+facts, proof pointers, and trusted commits/handoffs.
 ```
 
 ## Contents
